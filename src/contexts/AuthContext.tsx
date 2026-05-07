@@ -22,25 +22,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Initial Session Check
-    const initializeAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        if (currentUser) {
-          await fetchProfile(currentUser);
-        }
-      } catch (err) {
-        console.error('Auth initialization failed:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    // 2. Auth State Listener
+    // 1. Auth State Listener
+    // Rely exclusively on onAuthStateChange to prevent "Lock broken by steal option" concurrent errors
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user ?? null;
       
@@ -49,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (currentUser) {
         // Only fetch if session is fresh or profile missing
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || !profile) {
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED' || !profile) {
           await fetchProfile(currentUser);
         }
       } else {
