@@ -10,53 +10,17 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { signInWithGoogle, user } = useAuth();
   const navigate = useNavigate();
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin + '/app',
-          skipBrowserRedirect: true
-        }
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        const width = 600;
-        const height = 700;
-        const left = window.screenX + (window.outerWidth - width) / 2;
-        const top = window.screenY + (window.outerHeight - height) / 2;
-
-        const popup = window.open(
-          data.url,
-          'google-login',
-          `width=${width},height=${height},left=${left},top=${top}`
-        );
-
-        if (!popup) {
-          throw new Error('Popup blocked! Please allow popups for Google login.');
-        }
-
-        const timer = setInterval(async () => {
-          if (popup.closed) {
-            clearInterval(timer);
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              await handlePostLogin(session.user);
-              navigate('/app');
-            } else {
-              setLoading(false);
-            }
-          }
-        }, 1000);
-      }
+      await signInWithGoogle();
+      // Redirect will be handled by AuthContext listener
     } catch (err: any) {
-      setError(err.message);
+      setError('Connection refused. Please verify your internet status.');
       setLoading(false);
     }
   };

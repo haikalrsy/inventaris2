@@ -104,9 +104,9 @@ export default function DamageReports() {
     } catch (error: any) {
       console.error('Submission Error:', error);
       if (error.code === '42501' || error.status === 403) {
-        alert('Permission Denied (403): Ensure Database RLS policies allow INSERT for this user.');
+        alert('Database Lockdown (403): RLS Policy violation detected.\n\nACTION REQUIRED:\nRun the provided SQL script in your Supabase SQL Editor to authorize "damage_reports" INSERT and "pcs" UPDATE operations.');
       } else {
-        alert('Failed to transmit report: ' + error.message);
+        alert('Transmission Failed: ' + (error.message || 'Unknown error'));
       }
     } finally {
       setLoading(false);
