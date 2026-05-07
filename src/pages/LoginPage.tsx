@@ -11,26 +11,29 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isModified, setIsModified] = useState(false);
   const { signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already logged in or when login succeeds
+  // Handle auto-redirection only when auth settles and we're not actively logging in nor modified the form
   useEffect(() => {
-    if (user && !authLoading) {
-      navigate('/app');
+    if (user && !authLoading && !loading && !isModified) {
+      const currentPath = window.location.pathname;
+      if (currentPath === '/login') {
+        navigate('/app', { replace: true });
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, loading, isModified]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
     try {
       await signInWithGoogle();
-      // Navigation is now handled by the useEffect above
+      // Navigation is now handled by the useEffect above naturally
     } catch (err: any) {
       console.error('Google Auth Trigger Error:', err);
       setError(err.message || 'Identity Sync failed. Try Terminal Login.');
-    } finally {
       setLoading(false);
     }
   };
@@ -54,8 +57,7 @@ export default function Login() {
       };
 
       if (data.user) {
-        // AuthContext listener will handle profile fetching/creation
-        navigate('/app');
+        navigate('/app', { replace: true });
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
@@ -108,7 +110,10 @@ export default function Login() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (!isModified) setIsModified(true);
+                  }}
                   className="w-full pl-12 pr-4 py-4 bg-brand-black border border-brand-border rounded-xl focus:border-brand-lime/50 transition-all outline-none text-white font-bold text-sm tracking-tight"
                   placeholder="name@sector.com"
                   required
@@ -123,7 +128,10 @@ export default function Login() {
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (!isModified) setIsModified(true);
+                  }}
                   className="w-full pl-12 pr-4 py-4 bg-brand-black border border-brand-border rounded-xl focus:border-brand-lime/50 transition-all outline-none text-white font-bold text-sm tracking-tight"
                   placeholder="••••••••"
                   required

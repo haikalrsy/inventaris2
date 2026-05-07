@@ -47,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchProfile = async (userData: User) => {
+    setLoading(true);
     // Safety timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       setLoading(false);
@@ -58,6 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select('*')
         .eq('id', userData.id)
         .single();
+      
       if (error) {
         console.log('Profile not found, creating one...');
         const role = checkIsAdmin(userData.email) ? 'admin' : 'siswa';
@@ -73,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (createError) {
           console.error('Error creating profile:', createError);
+          setLoading(false);
         } else {
           setProfile(newProfile);
         }
@@ -105,10 +108,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      // Clear local states first to provide immediate UI feedback
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+      
+      // Attempt supabase sign out
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Final fallback to ensure state is dead
       setUser(null);
       setProfile(null);
       setLoading(false);

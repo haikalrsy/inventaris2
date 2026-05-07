@@ -38,7 +38,7 @@ export default function DashboardLayout() {
       navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout navigation failed:', error);
-      window.location.href = '/login'; // Fallback
+      window.location.href = '/login'; 
     }
   };
 
