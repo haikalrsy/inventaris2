@@ -47,16 +47,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchProfile = async (userData: User) => {
+    // Safety timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userData.id)
         .single();
-
       if (error) {
         console.log('Profile not found, creating one...');
-        // If profile doesn't exist, create it
         const role = checkIsAdmin(userData.email) ? 'admin' : 'siswa';
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
@@ -74,9 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setProfile(newProfile);
         }
       } else {
-        // Ensure role is correct based on config list
         if (checkIsAdmin(userData.email) && data.role !== 'admin') {
-          console.log(`Promoting user to admin: ${userData.email}`);
           const { data: updatedProfile, error: updateError } = await supabase
             .from('profiles')
             .update({ role: 'admin' })
@@ -85,10 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single();
           
           if (updateError) {
-            console.error('Error promoting role (Likely RLS blocking self-update):', updateError);
-            setProfile(data); // Stay as current data if update fails
+            console.error('Error promoting role:', updateError);
+            setProfile(data);
           } else {
-            console.log('Promotion successful in database');
             setProfile(updatedProfile);
           }
         } else {
@@ -98,22 +98,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('Unexpected error fetching profile:', err);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      setLoading(false);
+    }
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/app',
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/app',
+          skipBrowserRedirect: true
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        // Use a popup for Google login to avoid redirect issues in iframes
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+
+        const popup = window.open(
+          data.url,
+          'google-login',
+          `width=${width},height=${height},left=${left},top=${top}`
+        );
+
+        if (!popup) {
+          throw new Error('Popup blocked! Please allow popups for login.');
+        }
+
+        // The onAuthStateChange listener in useEffect will handle the session once the popup finishes the flow
       }
-    });
-    if (error) throw error;
+    } catch (error) {
+      console.error('Google Sign-In Error:', error);
+      throw error;
+    }
   };
 
   const signUp = async (email: string, password: string, fullName: string, role: string) => {
@@ -144,11 +180,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isAdminFromConfig = checkIsAdmin(user?.email);
-  const isAdmin = profile?.role === 'admin' || isAdminFromConfig;
+  const isAdminState = profile?.role === 'admin' || isAdminFromConfig;
   const isSiswa = profile?.role === 'siswa' && !isAdminFromConfig;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAdmin, isSiswa, signOut, signInWithGoogle, signUp }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAdmin: isAdminState, isSiswa, signOut, signInWithGoogle, signUp }}>
       {children}
     </AuthContext.Provider>
   );

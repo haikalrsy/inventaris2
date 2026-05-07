@@ -1,6 +1,7 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'motion/react';
 import { LogIn, Mail, Lock, AlertCircle, ShieldCheck } from 'lucide-react';
 import { isAdmin } from '../config';
@@ -10,43 +11,27 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { signInWithGoogle, user } = useAuth();
+  const { signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already logged in or when login succeeds
+  useEffect(() => {
+    if (user && !authLoading) {
+      navigate('/app');
+    }
+  }, [user, authLoading, navigate]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError(null);
     try {
       await signInWithGoogle();
-      // Redirect will be handled by AuthContext listener
+      // Navigation is now handled by the useEffect above
     } catch (err: any) {
-      setError('Connection refused. Please verify your internet status.');
+      console.error('Google Auth Trigger Error:', err);
+      setError(err.message || 'Identity Sync failed. Try Terminal Login.');
+    } finally {
       setLoading(false);
-    }
-  };
-
-  const handlePostLogin = async (user: any) => {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile) {
-      const role = isAdmin(user.email) ? 'admin' : 'siswa';
-      await supabase.from('profiles').insert({
-        id: user.id,
-        full_name: user.user_metadata?.full_name || 'User',
-        role: role,
-        created_at: new Date().toISOString()
-      });
-    } else {
-      if (isAdmin(user.email) && profile.role !== 'admin') {
-        await supabase
-          .from('profiles')
-          .update({ role: 'admin' })
-          .eq('id', user.id);
-      }
     }
   };
 
@@ -69,7 +54,7 @@ export default function Login() {
       };
 
       if (data.user) {
-        await handlePostLogin(data.user);
+        // AuthContext listener will handle profile fetching/creation
         navigate('/app');
       }
     } catch (err: any) {

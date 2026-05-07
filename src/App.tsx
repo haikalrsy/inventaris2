@@ -17,12 +17,13 @@ const ProtectedRoute = ({ children, roles }: { children: React.ReactNode, roles?
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-brand-gradient">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-brand-black">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="w-12 h-12 border-4 border-white border-t-transparent rounded-full"
+          className="w-12 h-12 border-2 border-brand-lime border-t-transparent rounded-full mb-4"
         />
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Syncing Encryption Layer...</p>
       </div>
     );
   }

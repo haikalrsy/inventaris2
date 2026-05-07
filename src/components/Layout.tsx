@@ -22,14 +22,24 @@ function cn(...inputs: ClassValue[]) {
 }
 
 export default function DashboardLayout() {
-  const { profile, signOut, isAdmin } = useAuth();
+  const { user, profile, signOut, isAdmin } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/login');
+  const handleLogout = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    try {
+      await signOut();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Logout navigation failed:', error);
+      window.location.href = '/login'; // Fallback
+    }
   };
 
   const menuItems = [
@@ -135,10 +145,15 @@ export default function DashboardLayout() {
                 <User className="w-4 h-4 text-slate-400 group-hover:text-brand-lime" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-black text-white truncate uppercase tracking-tighter">{profile?.full_name || 'User'}</p>
+                <p className="text-xs font-black text-white truncate uppercase tracking-tighter">{profile?.full_name || user?.email?.split('@')[0] || 'Unknown User'}</p>
                 <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{profile?.role || 'Guest'}</p>
+                  <div className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    isAdmin ? "bg-red-500 animate-pulse" : "bg-green-500"
+                  )} />
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                    {profile?.role || (isAdmin ? 'Admin (Config)' : 'Guest')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -172,8 +187,9 @@ export default function DashboardLayout() {
             
             <button
               onClick={handleLogout}
-              className="group p-2 hover:bg-red-500/10 rounded-lg transition-all text-slate-500 hover:text-red-500"
-              title="Logout"
+              className="flex items-center justify-center p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white transition-all duration-300 border border-red-500/20 active:scale-95"
+              title="Sign Out"
+              aria-label="Secure Logout"
             >
               <LogOut className="w-4 h-4" />
             </button>
