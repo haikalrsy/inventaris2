@@ -15,26 +15,23 @@ export default function Login() {
   const { signInWithGoogle, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Handle auto-redirection only when auth settles and we're not actively logging in nor modified the form
+  // Handle auto-redirection when user is authenticated
   useEffect(() => {
-    if (user && !authLoading && !loading && !isModified) {
-      const currentPath = window.location.pathname;
-      if (currentPath === '/login') {
-        navigate('/app', { replace: true });
-      }
+    // If user is authenticated and we're not waiting for auth initialization
+    if (user && !authLoading) {
+      // Small delay to ensure state propagates, though navigate should handle it
+      navigate('/app', { replace: true });
     }
-  }, [user, authLoading, navigate, loading, isModified]);
+  }, [user, authLoading, navigate]);
 
   const handleGoogleLogin = async () => {
-    setLoading(true);
     setError(null);
     try {
       await signInWithGoogle();
-      // Navigation is now handled by the useEffect above naturally
+      // AuthContext will handle state update and trigger the useEffect above
     } catch (err: any) {
       console.error('Google Auth Trigger Error:', err);
       setError(err.message || 'Identity Sync failed. Try Terminal Login.');
-      setLoading(false);
     }
   };
 
@@ -52,16 +49,16 @@ export default function Login() {
         if (error.message.includes('Invalid login credentials')) {
           throw new Error('Invalid credentials. Check your email and password.');
         }
-        // Email confirmation check disabled
         throw error;
       };
 
       if (data.user) {
+        // Navigate immediately to improve perceived speed
+        // The AuthContext will handle state updates in the background
         navigate('/app', { replace: true });
       }
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };

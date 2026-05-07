@@ -1,4 +1,4 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,7 +12,15 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { signUp, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      navigate('/app', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,29 +28,16 @@ export default function RegisterPage() {
     setError(null);
     try {
       setError(null);
-      // Import config dynamically to get ADMIN_EMAILS
-      const { ADMIN_EMAILS } = await import('../config');
-      const isInitialAdmin = ADMIN_EMAILS.some(e => e.toLowerCase() === email.toLowerCase());
-      const role = isInitialAdmin ? 'admin' : 'siswa';
-
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            role: role
-          }
-        }
-      });
-
-      if (signUpError) throw signUpError;
-      setSuccess(true);
       
+      // Use the email specifically provided to determine initial role
+      await signUp(email, password, fullName, 'siswa');
+
+      setSuccess(true);
       setError('Unit Initialized. Redirecting to access terminal...');
 
+      // Redirect to /app because signUp likely logged the user in
       setTimeout(() => {
-        navigate('/login');
+        navigate('/app', { replace: true });
       }, 1500);
     } catch (err: any) {
       if (err.message?.includes('rate limit')) {

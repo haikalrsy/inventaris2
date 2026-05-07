@@ -22,21 +22,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user);
-      } else {
+    // 1. Initial Session Check
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser);
+        }
+      } catch (err) {
+        console.error('Auth initialization failed:', err);
+      } finally {
         setLoading(false);
       }
-    });
+    };
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user);
+    initializeAuth();
+
+    // 2. Auth State Listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const currentUser = session?.user ?? null;
+      
+      // Update basic user immediately
+      setUser(currentUser);
+
+      if (currentUser) {
+        // Only fetch if session is fresh or profile missing
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED' || !profile) {
+          await fetchProfile(currentUser);
+        }
       } else {
         setProfile(null);
         setLoading(false);
@@ -47,11 +62,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const fetchProfile = async (userData: User) => {
-    setLoading(true);
-    // Safety timeout to prevent infinite loading
+    // Safety timeout
     const timeoutId = setTimeout(() => {
       setLoading(false);
-    }, 10000);
+    }, 5000);
 
     try {
       const { data, error } = await supabase
@@ -61,45 +75,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
       
       if (error) {
-        console.log('Profile not found, creating one...');
+        // Profile doesn't exist, create it
         const role = checkIsAdmin(userData.email) ? 'admin' : 'siswa';
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .upsert({
             id: userData.id,
-            full_name: userData.user_metadata?.full_name || 'User',
+            full_name: userData.user_metadata?.full_name || userData.email?.split('@')[0] || 'User',
             role: role
           })
           .select()
           .single();
         
-        if (createError) {
-          console.error('Error creating profile:', createError);
-          setLoading(false);
-        } else {
+        if (!createError) {
           setProfile(newProfile);
         }
       } else {
+        // Profile exists, sync role if needed (for initial admin setup)
         if (checkIsAdmin(userData.email) && data.role !== 'admin') {
-          const { data: updatedProfile, error: updateError } = await supabase
+          const { data: updatedProfile } = await supabase
             .from('profiles')
             .update({ role: 'admin' })
             .eq('id', userData.id)
             .select()
             .single();
-          
-          if (updateError) {
-            console.error('Error promoting role:', updateError);
-            setProfile(data);
-          } else {
-            setProfile(updatedProfile);
-          }
+          setProfile(updatedProfile || data);
         } else {
           setProfile(data);
         }
       }
     } catch (err) {
-      console.error('Unexpected error fetching profile:', err);
+      console.error('Fetch profile catch:', err);
     } finally {
       clearTimeout(timeoutId);
       setLoading(false);
@@ -176,16 +182,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw error;
 
     if (data.user) {
+      // Clear local states before navigating to ensure fresh load
       const finalRole = checkIsAdmin(email) ? 'admin' : role;
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: data.user.id,
-          full_name: fullName,
-          role: finalRole,
-        });
-      
-      if (profileError) throw profileError;
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: data.user.id,
+            full_name: fullName,
+            role: finalRole,
+          });
+      } catch (e) {
+        console.warn('Silent profile upsert failure, main flow will retry:', e);
+      }
     }
   };
 

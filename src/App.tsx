@@ -56,35 +56,33 @@ function AnimatedRoutes() {
   const location = useLocation();
   
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location}>
-        <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
-        <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
-        <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
-        
-        <Route path="/app" element={
-          <ProtectedRoute>
-            <DashboardLayout />
+    <Routes location={location}>
+      <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
+      <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
+      <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
+      
+      <Route path="/app" element={
+        <ProtectedRoute>
+          <DashboardLayout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<PageWrapper><Dashboard /></PageWrapper>} />
+        <Route path="user-management" element={
+          <ProtectedRoute roles={['admin']}>
+            <PageWrapper><UserManagement /></PageWrapper>
           </ProtectedRoute>
-        }>
-          <Route index element={<PageWrapper><Dashboard /></PageWrapper>} />
-          <Route path="user-management" element={
-            <ProtectedRoute roles={['admin']}>
-              <PageWrapper><UserManagement /></PageWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="analytics" element={
-            <ProtectedRoute roles={['admin']}>
-              <PageWrapper><Analytics /></PageWrapper>
-            </ProtectedRoute>
-          } />
-          <Route path="inventory" element={<PageWrapper><Inventory /></PageWrapper>} />
-          <Route path="reports" element={<PageWrapper><DamageReports /></PageWrapper>} />
-        </Route>
+        } />
+        <Route path="analytics" element={
+          <ProtectedRoute roles={['admin']}>
+            <PageWrapper><Analytics /></PageWrapper>
+          </ProtectedRoute>
+        } />
+        <Route path="inventory" element={<PageWrapper><Inventory /></PageWrapper>} />
+        <Route path="reports" element={<PageWrapper><DamageReports /></PageWrapper>} />
+      </Route>
 
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </AnimatePresence>
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
   );
 }
 
